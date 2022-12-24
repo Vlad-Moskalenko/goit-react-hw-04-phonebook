@@ -1,76 +1,61 @@
-import PropTypes from 'prop-types';
+import { useState } from 'react';
+import { nanoid } from 'nanoid';
 
-import { ContactForm } from './ContactForm';
-import { Filter } from './Filter';
-import { ContactList } from './ContactList';
-import { useState, useEffect } from 'react';
+import { Section } from './Section/Section';
+import { ContactForm } from './ContactForm/ContactForm';
+import { ContactsList } from './ContactsList/ContactsList';
+import { Filter } from './Filter/Filter';
+import { useLocalStorage } from 'hooks/useLocalStorage';
 
-export function App() {
-  const [contacts, setContacts] = useState([]);
+export const App = () => {
+  const [contacts, setContacts] = useLocalStorage('contacts', []);
   const [filter, setFilter] = useState('');
 
-  useEffect(() => {
-    const contactsList = localStorage.getItem('contactsList');
-    if (contactsList) setContacts(JSON.parse(contactsList));
-  }, []);
+  const onSearch = e => setFilter(e.target.value);
 
-  useEffect(() => {
-    localStorage.setItem('contactsList', JSON.stringify(contacts));
-  }, [contacts]);
+  const isNotUniqueContact = newContactName => {
+    return contacts.find(
+      ({ name }) => name.toLowerCase() === newContactName.toLowerCase()
+    );
+  };
 
-  const onFormSubmit = e => {
-    e.preventDefault();
+  const onAddContact = ({ name, number }) => {
+    if (isNotUniqueContact(name)) {
+      return alert(`${name} is already in contacts`);
+    }
 
-    const contact = {
-      name: e.target.elements.name.value,
-      id: e.target.elements.name.id,
-      number: e.target.elements.number.value,
+    const newContact = {
+      id: nanoid(),
+      name: name,
+      number: number,
     };
 
-    onAddContact(contact);
-
-    e.target.reset();
+    setContacts(prevState => [...prevState, newContact]);
   };
 
-  const onAddContact = contactObj => {
-    if (isUniqueContact(contactObj.name))
-      return alert(`${contactObj.name} is already in contacts`);
-
-    setContacts([...contacts, contactObj]);
+  const onDeleteContact = contactId => {
+    setContacts(prevState => prevState.filter(({ id }) => id !== contactId));
   };
-
-  const isUniqueContact = uniqueParam =>
-    contacts.find(
-      contact => contact.name.toLowerCase() === uniqueParam.toLowerCase()
-    );
-
-  const findContact = e => setFilter(e.target.value);
-
-  const deleteContact = e =>
-    setContacts(contacts.filter(({ id }) => id !== e.target.parentElement.id));
 
   return (
-    <div className="app-wrapper">
-      <h1>Phonebook</h1>
-      <ContactForm onSubmit={onFormSubmit} />
-      <h2>Contacts</h2>
-      <Filter onChange={findContact} />
-      <ContactList
-        contacts={contacts}
-        filter={filter}
-        deleteContact={deleteContact}
-      />
-    </div>
+    <main className="app-wrapper">
+      <Section title="Phonebook">
+        <ContactForm onAddContact={onAddContact} />
+      </Section>
+      <Section title="Contacts">
+        {contacts.length > 0 ? (
+          <>
+            <Filter onSearch={onSearch} filter={filter} />
+            <ContactsList
+              contactsList={contacts}
+              filter={filter}
+              onDeleteContact={onDeleteContact}
+            />
+          </>
+        ) : (
+          <p>There are no contacts yet...</p>
+        )}
+      </Section>
+    </main>
   );
-}
-
-ContactList.propTypes = {
-  contacts: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string,
-      name: PropTypes.string,
-      number: PropTypes.string,
-    })
-  ),
-  filter: PropTypes.string,
 };
